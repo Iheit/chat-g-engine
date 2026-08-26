@@ -1,0 +1,36 @@
+name: Nova3D Windows MSYS2 UCRT64 Build
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: msys2 {0}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: msys2/setup-msys2@v2
+        with:
+          msystem: UCRT64
+          update: true
+          install: >-
+            mingw-w64-ucrt-x86_64-gcc
+            mingw-w64-ucrt-x86_64-cmake
+            mingw-w64-ucrt-x86_64-ninja
+      - name: Configure
+        run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DNOVA3D_BUILD_DEMO=ON
+      - name: Build
+        run: cmake --build build --parallel
+      - name: Package
+        run: |
+          mkdir -p package
+          if [ -f build/Nova3D.exe ]; then cp build/Nova3D.exe package/; fi
+          if [ -d assets ]; then cp -r assets package/; fi
+          7z a Nova3D-Windows-x64.zip ./package/*
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Nova3D-Windows-x64
+          path: Nova3D-Windows-x64.zip
