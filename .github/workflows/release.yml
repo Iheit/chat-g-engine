@@ -1,0 +1,75 @@
+name: Nova3D Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  windows:
+    name: Build Windows Release
+    runs-on: windows-latest
+
+    defaults:
+      run:
+        shell: msys2 {0}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Setup MSYS2 UCRT64
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: UCRT64
+          update: true
+          install: >-
+            mingw-w64-ucrt-x86_64-gcc
+            mingw-w64-ucrt-x86_64-cmake
+            mingw-w64-ucrt-x86_64-ninja
+            zip
+
+      - name: Configure
+        run: >
+          cmake
+          -S .
+          -B build
+          -G Ninja
+          -DCMAKE_BUILD_TYPE=Release
+          -DNOVA3D_BUILD_DEMO=ON
+
+      - name: Build
+        run: cmake --build build --parallel
+
+      - name: Package
+        run: |
+          set -e
+
+          mkdir -p package
+
+          EXE=$(find build -type f -name '*.exe' | head -n 1)
+
+          if [ -z "$EXE" ]; then
+            echo "ERROR: No Windows executable was produced."
+            exit 1
+          fi
+
+          cp "$EXE" package/Nova3D.exe
+
+          if [ -d assets ]; then
+            cp -r assets package/
+          fi
+
+          cd package
+          zip -r ../Nova3D-Windows-x64.zip .
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: Nova3D-Windows-x64.zip
+          generate_release_notes: true
+          draft: false
+          prerelease: false
