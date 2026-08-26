@@ -32,6 +32,10 @@ jobs:
           if [ -f build/nova3d_renderer_demo.exe ]; then cp build/nova3d_renderer_demo.exe package/Nova3D.exe; fi
           if [ -d assets ]; then cp -r assets package/; fi
           if [ ! -f package/Nova3D.exe ]; then echo "Nova3D executable was not produced"; exit 1; fi
+          # Bundle the MSYS2 runtime DLLs required by the executable so users do not need MSYS2 installed.
+          ldd package/Nova3D.exe | awk '/\/ucrt64\/bin\/.*\.dll/ {print $3}' | while read -r dll; do
+            if [ -f "$dll" ]; then cp -n "$dll" package/; fi
+done
           powershell.exe -NoProfile -Command "Compress-Archive -Path 'package\\*' -DestinationPath 'Nova3D-Windows-x64.zip' -Force"
       - uses: actions/upload-artifact@v4
         with:
