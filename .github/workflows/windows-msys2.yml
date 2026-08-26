@@ -1,0 +1,60 @@
+name: Windows MSYS2 UCRT64 Build
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+
+    defaults:
+      run:
+        shell: msys2 {0}
+
+    steps:
+      - name: Checkout Nova3D
+        uses: actions/checkout@v4
+
+      - name: Set up MSYS2 UCRT64
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: UCRT64
+          update: true
+          install: >-
+            mingw-w64-ucrt-x86_64-toolchain
+            mingw-w64-ucrt-x86_64-cmake
+            mingw-w64-ucrt-x86_64-ninja
+            mingw-w64-ucrt-x86_64-pkgconf
+          cache: true
+
+      - name: Configure
+        run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build
+        run: cmake --build build --parallel
+
+      - name: Package build
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path dist | Out-Null
+          if (Test-Path build/nova3d_renderer_demo.exe) {
+            Copy-Item build/nova3d_renderer_demo.exe dist/Nova3D.exe
+          } elseif (Test-Path build/Nova3D.exe) {
+            Copy-Item build/Nova3D.exe dist/Nova3D.exe
+          } else {
+            throw 'Nova3D executable was not produced by the build.'
+          }
+          if (Test-Path assets) { Copy-Item assets dist/assets -Recurse }
+          Copy-Item LICENSE dist/LICENSE.txt
+          Copy-Item README.md dist/README.md
+          Compress-Archive -Path dist/* -DestinationPath Nova3D-Windows-x64.zip -Force
+
+      - name: Upload Windows package
+        uses: actions/upload-artifact@v4
+        with:
+          name: Nova3D-Windows-x64
+          path: Nova3D-Windows-x64.zip
