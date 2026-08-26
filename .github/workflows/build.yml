@@ -1,0 +1,48 @@
+name: Nova3D Build
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configure
+        run: cmake -S . -B build -G "Visual Studio 17 2022" -A x64 -DNOVA3D_BUILD_DEMO=ON
+      - name: Build
+        run: cmake --build build --config Release --parallel
+      - name: Package
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path package | Out-Null
+          Copy-Item build/Release/nova3d_renderer_demo.exe package/ -ErrorAction Stop
+          if (Test-Path assets) { Copy-Item assets package/assets -Recurse }
+          Compress-Archive -Path package/* -DestinationPath Nova3D-Windows-x64.zip
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Nova3D-Windows-x64
+          path: Nova3D-Windows-x64.zip
+
+  linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install dependencies
+        run: sudo apt-get update && sudo apt-get install -y libx11-dev libgl1-mesa-dev
+      - name: Configure
+        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DNOVA3D_BUILD_DEMO=ON
+      - name: Build
+        run: cmake --build build --parallel
+      - name: Package
+        run: tar -czf Nova3D-Linux-x64.tar.gz -C build nova3d_renderer_demo
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Nova3D-Linux-x64
+          path: Nova3D-Linux-x64.tar.gz
